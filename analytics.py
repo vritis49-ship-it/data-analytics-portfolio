@@ -1,11 +1,11 @@
 import sqlite3
+import matplotlib.pyplot as plt
 
 def run_analytics():
-    # 1. Connect to a local SQLite database (creates the file if it doesn't exist)
+    # 1. Connect to database and build schema
     conn = sqlite3.connect('tech_store.db')
     cursor = conn.cursor()
 
-    # 2. Build the schema using SQL
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS sales (
         transaction_id INTEGER PRIMARY KEY,
@@ -16,7 +16,7 @@ def run_analytics():
     )
     ''')
 
-    # 3. Load sample dataset
+    # 2. Load dataset
     dataset = [
         (1, 'Mechanical Keyboard', 'Hardware', 120.00, 15),
         (2, 'Wireless Mouse', 'Hardware', 45.50, 30),
@@ -25,33 +25,45 @@ def run_analytics():
         (5, '4K Monitor', 'Hardware', 350.00, 8)
     ]
     
-    # Clear old data to prevent duplicates on multiple runs, then insert new data
     cursor.execute('DELETE FROM sales')
     cursor.executemany('INSERT INTO sales VALUES (?, ?, ?, ?, ?)', dataset)
     conn.commit()
 
-    # 4. Execute an analytical SQL query
-    print("📊 --- Tech Store Revenue Analytics --- 📊\n")
-    
+    # 3. Execute SQL query
     cursor.execute('''
         SELECT 
             category, 
-            SUM(price * quantity_sold) as total_revenue, 
-            SUM(quantity_sold) as total_items
+            SUM(price * quantity_sold) as total_revenue
         FROM sales
         GROUP BY category
         ORDER BY total_revenue DESC
     ''')
 
-    # 5. Process and display the results
     results = cursor.fetchall()
-    for row in results:
-        category, revenue, items = row
-        print(f"Category: {category}")
-        print(f"  ↳ Total Revenue: ${revenue:,.2f}")
-        print(f"  ↳ Items Sold: {items}\n")
-
     conn.close()
+
+    # 4. Prepare data for visualization
+    categories = [row[0] for row in results]
+    revenues = [row[1] for row in results]
+
+    # 5. Generate and save the Bar Chart
+    plt.figure(figsize=(8, 5))
+    bars = plt.bar(categories, revenues, color=['#2c3e50', '#b3c7f9'])
+    
+    # Add title and labels
+    plt.title('Tech Store Revenue by Category', fontsize=14, fontweight='bold')
+    plt.xlabel('Product Category', fontsize=12)
+    plt.ylabel('Total Revenue ($)', fontsize=12)
+    
+    # Add exact numbers on top of the bars
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval + 100, f'${yval:,.2f}', ha='center', fontsize=10)
+
+    # Save the chart as an image file instead of just showing it
+    plt.tight_layout()
+    plt.savefig('revenue_chart.png')
+    print("✅ Analytics complete! Chart saved as 'revenue_chart.png'")
 
 if __name__ == '__main__':
     run_analytics()
